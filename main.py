@@ -5,10 +5,10 @@
 """
 
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import streamlit.components.v1 as components
 
 # ──────────────────────────────────────────────────────────────────────
 # КОНФИГУРАЦИЯ СТРАНИЦЫ
@@ -145,84 +145,131 @@ st.markdown("""
         border-radius: 8px !important;
     }
 
-    /* ── Брендовая карточка в сайдбаре ─────────────────────────── */
-    .brand-card {
-        background: linear-gradient(135deg, #134d89 0%, #185FA5 55%, #378ADD 100%);
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+
+    /* ─── БРЕНД-БАННЕР САЙДБАРА (декор «финансовый анализ») ─── */
+    .brand-banner {
+        position: relative;
+        background: linear-gradient(145deg, #123b63 0%, #185FA5 55%, #2f86d6 100%);
         border-radius: 16px;
-        padding: 22px 16px 18px 16px;
-        margin-bottom: 18px;
-        text-align: center;
-        position: relative;
+        padding: 22px 18px 18px 18px;
+        margin: 2px 0 18px 0;
         overflow: hidden;
-        box-shadow: 0 6px 18px rgba(24,95,165,0.28);
+        box-shadow: 0 6px 18px rgba(24, 95, 165, 0.28);
     }
-    .brand-card::before {
+    .brand-banner::before {
         content: "";
         position: absolute;
-        top: -26px; right: -22px;
-        width: 100px; height: 100px;
-        background: rgba(255,255,255,0.09);
+        top: -30px; right: -30px;
+        width: 120px; height: 120px;
+        background: radial-gradient(circle, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 70%);
         border-radius: 50%;
     }
-    .brand-card::after {
-        content: "";
-        position: absolute;
-        bottom: -34px; left: -16px;
-        width: 80px; height: 80px;
-        background: rgba(255,255,255,0.07);
-        border-radius: 50%;
-    }
-    .brand-icon-row {
-        font-size: 30px;
-        line-height: 1;
-        margin-bottom: 8px;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.18));
+    .brand-banner .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
         position: relative;
-        z-index: 1;
+        z-index: 2;
     }
-    .brand-title {
-        font-size: 20px;
+    .brand-banner .brand-icon {
+        width: 46px; height: 46px;
+        flex-shrink: 0;
+        background: rgba(255,255,255,0.14);
+        border: 1px solid rgba(255,255,255,0.35);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .brand-banner .brand-title {
+        font-size: 17px;
         font-weight: 700;
         color: #ffffff;
         letter-spacing: 0.01em;
-        margin-bottom: 3px;
-        position: relative;
-        z-index: 1;
+        line-height: 1.15;
     }
-    .brand-sub {
+    .brand-banner .brand-subtitle {
         font-size: 10.5px;
         font-weight: 500;
-        color: rgba(255,255,255,0.88);
+        color: rgba(255,255,255,0.78);
         text-transform: uppercase;
-        letter-spacing: 0.09em;
-        position: relative;
-        z-index: 1;
+        letter-spacing: 0.06em;
+        margin-top: 2px;
     }
-    .brand-decor {
+    .brand-banner .brand-chart {
+        position: relative;
+        z-index: 2;
+        margin-top: 14px;
+    }
+    .brand-banner .brand-tags {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        gap: 6px;
         margin-top: 12px;
-        padding-top: 10px;
-        border-top: 1px solid rgba(255,255,255,0.18);
-        font-size: 15px;
-        letter-spacing: 9px;
-        color: rgba(255,255,255,0.65);
-        position: relative;
-        z-index: 1;
+        flex-wrap: wrap;
+    }
+    .brand-banner .brand-tag {
+        font-size: 9.5px;
+        font-weight: 600;
+        color: #ffffff;
+        background: rgba(255,255,255,0.16);
+        border: 1px solid rgba(255,255,255,0.3);
+        padding: 3px 9px;
+        border-radius: 20px;
+        letter-spacing: 0.02em;
     }
 
-    /* ── Компактный калькулятор в сайдбаре ─────────────────────── */
-    .calc-wrap div[data-testid="stExpander"] {
-        border: 1px solid #e0ddd6 !important;
-        border-radius: 10px !important;
-        background: #ffffff !important;
+    /* ─── МИНИ-КАЛЬКУЛЯТОР В САЙДБАРЕ ─── */
+    .calc-wrap {
+        font-family: 'Inter', sans-serif;
     }
-    .calc-wrap summary {
-        font-size: 12.5px !important;
-        font-weight: 600 !important;
-        color: #5F5E5A !important;
+    .calc-display {
+        background: #1a1a18;
+        color: #ffffff;
+        border-radius: 8px;
+        padding: 10px 12px;
+        text-align: right;
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        min-height: 28px;
+        overflow-x: auto;
+        white-space: nowrap;
+        letter-spacing: 0.02em;
     }
-
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    .calc-sub {
+        color: #9a9a95;
+        font-size: 10.5px;
+        text-align: right;
+        min-height: 14px;
+        margin-bottom: 2px;
+    }
+    .calc-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 5px;
+    }
+    .calc-btn {
+        border: 1px solid #e0ddd6;
+        background: #ffffff;
+        color: #3a3a36;
+        border-radius: 7px;
+        padding: 7px 0;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.12s;
+        user-select: none;
+    }
+    .calc-btn:hover { background: #f3f1ec; }
+    .calc-btn:active { transform: scale(0.94); }
+    .calc-btn.op { background: #185FA5; color: #fff; border: none; }
+    .calc-btn.op:hover { background: #0c447c; }
+    .calc-btn.eq { background: #2fa35c; color: #fff; border: none; }
+    .calc-btn.eq:hover { background: #23803f; }
+    .calc-btn.clear { background: #fff; color: #b3453a; border: 1px solid #e0ddd6; }
+    .calc-btn.wide { grid-column: span 2; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -409,12 +456,31 @@ def active_years():
 # SIDEBAR — навигация
 # ──────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        st.markdown("### 📊")
-    with col2:
-        st.markdown("**ФинАнализ**")
-        st.caption("Калькулятор")
+    st.markdown("""
+    <div class="brand-banner">
+        <div class="brand-row">
+            <div class="brand-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 21h18" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+                    <rect x="5" y="13" width="3.2" height="6" rx="0.8" fill="#ffffff" fill-opacity="0.9"/>
+                    <rect x="10.4" y="8.5" width="3.2" height="10.5" rx="0.8" fill="#ffffff"/>
+                    <rect x="15.8" y="4" width="3.2" height="15" rx="0.8" fill="#ffffff" fill-opacity="0.95"/>
+                    <path d="M4.5 10.5L9 6.5L13 9.5L19 3.5" stroke="#7CD6A3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M15.3 3.5H19V7.2" stroke="#7CD6A3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div>
+                <div class="brand-title">ФинАнализ</div>
+                <div class="brand-subtitle">Калькулятор коэффициентов</div>
+            </div>
+        </div>
+        <div class="brand-tags">
+            <span class="brand-tag">📄 Отчётность</span>
+            <span class="brand-tag">📊 Анализ</span>
+            <span class="brand-tag">🎯 Прогноз</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown('<div class="nav-label">ДАННЫЕ</div>', unsafe_allow_html=True)
     page = st.radio(
@@ -439,6 +505,139 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Введите данные баланса, ОПиУ и ОДС — все коэффициенты рассчитываются автоматически")
     st.caption(f"Текущая единица: **{st.session_state.unit}**")
+
+    st.markdown("---")
+    with st.expander("🧮 Калькулятор", expanded=False):
+        components.html("""
+        <style>
+            .calc-wrap { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+            .calc-display {
+                background: #1a1a18; color: #ffffff; border-radius: 8px;
+                padding: 10px 12px; text-align: right; font-size: 20px; font-weight: 600;
+                margin-bottom: 6px; min-height: 28px; overflow-x: auto; white-space: nowrap;
+                letter-spacing: 0.02em;
+            }
+            .calc-sub { color: #9a9a95; font-size: 10.5px; text-align: right; min-height: 14px; margin-bottom: 2px; }
+            .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+            .calc-btn {
+                border: 1px solid #e0ddd6; background: #ffffff; color: #3a3a36;
+                border-radius: 7px; padding: 7px 0; font-size: 13px; font-weight: 500;
+                cursor: pointer; transition: all 0.12s; user-select: none;
+            }
+            .calc-btn:hover { background: #f3f1ec; }
+            .calc-btn:active { transform: scale(0.94); }
+            .calc-btn.op { background: #185FA5; color: #fff; border: none; }
+            .calc-btn.op:hover { background: #0c447c; }
+            .calc-btn.eq { background: #2fa35c; color: #fff; border: none; }
+            .calc-btn.eq:hover { background: #23803f; }
+            .calc-btn.clear { background: #fff; color: #b3453a; border: 1px solid #e0ddd6; }
+            .calc-btn.wide { grid-column: span 2; }
+            body { margin: 0; padding: 2px; background: transparent; }
+        </style>
+        <div class="calc-wrap">
+            <div class="calc-sub" id="calcSub">&nbsp;</div>
+            <div class="calc-display" id="calcDisplay">0</div>
+            <div class="calc-grid">
+                <button class="calc-btn clear" onclick="calcClear()">C</button>
+                <button class="calc-btn clear" onclick="calcBackspace()">⌫</button>
+                <button class="calc-btn op" onclick="calcOp('%')">%</button>
+                <button class="calc-btn op" onclick="calcOp('/')">÷</button>
+
+                <button class="calc-btn" onclick="calcNum('7')">7</button>
+                <button class="calc-btn" onclick="calcNum('8')">8</button>
+                <button class="calc-btn" onclick="calcNum('9')">9</button>
+                <button class="calc-btn op" onclick="calcOp('*')">×</button>
+
+                <button class="calc-btn" onclick="calcNum('4')">4</button>
+                <button class="calc-btn" onclick="calcNum('5')">5</button>
+                <button class="calc-btn" onclick="calcNum('6')">6</button>
+                <button class="calc-btn op" onclick="calcOp('-')">−</button>
+
+                <button class="calc-btn" onclick="calcNum('1')">1</button>
+                <button class="calc-btn" onclick="calcNum('2')">2</button>
+                <button class="calc-btn" onclick="calcNum('3')">3</button>
+                <button class="calc-btn op" onclick="calcOp('+')">+</button>
+
+                <button class="calc-btn wide" onclick="calcNum('0')">0</button>
+                <button class="calc-btn" onclick="calcNum('.')">.</button>
+                <button class="calc-btn eq" onclick="calcEquals()">=</button>
+            </div>
+        </div>
+        <script>
+            let current = "0";
+            let previous = null;
+            let operator = null;
+            let justEvaluated = false;
+
+            function fmt(n) {
+                if (n === "" || n === "-" ) return "0";
+                let num = parseFloat(n);
+                if (!isFinite(num)) return "Ошибка";
+                let s = num.toString();
+                if (s.length > 14) s = num.toPrecision(10).toString();
+                return s;
+            }
+
+            function render() {
+                document.getElementById("calcDisplay").innerText = fmt(current);
+                let sub = "";
+                if (previous !== null && operator) {
+                    let opSym = {"+":"+","-":"−","*":"×","/":"÷","%":"%"}[operator];
+                    sub = fmt(previous) + " " + opSym;
+                }
+                document.getElementById("calcSub").innerText = sub || "\\u00a0";
+            }
+
+            function calcNum(d) {
+                if (justEvaluated) { current = "0"; justEvaluated = false; }
+                if (d === "." && current.includes(".")) return;
+                if (current === "0" && d !== ".") current = d;
+                else current += d;
+                render();
+            }
+
+            function calcOp(op) {
+                if (operator && previous !== null && !justEvaluated) {
+                    calcEquals();
+                }
+                previous = current;
+                operator = op;
+                current = "0";
+                justEvaluated = false;
+                render();
+            }
+
+            function calcEquals() {
+                if (operator === null || previous === null) return;
+                let a = parseFloat(previous);
+                let b = parseFloat(current);
+                let r = 0;
+                if (operator === "+") r = a + b;
+                else if (operator === "-") r = a - b;
+                else if (operator === "*") r = a * b;
+                else if (operator === "/") r = b === 0 ? NaN : a / b;
+                else if (operator === "%") r = a * (b / 100);
+                current = isFinite(r) ? r.toString() : "Ошибка";
+                operator = null;
+                previous = null;
+                justEvaluated = true;
+                render();
+            }
+
+            function calcClear() {
+                current = "0"; previous = null; operator = null; justEvaluated = false;
+                render();
+            }
+
+            function calcBackspace() {
+                if (justEvaluated) { calcClear(); return; }
+                current = current.length > 1 ? current.slice(0, -1) : "0";
+                render();
+            }
+
+            render();
+        </script>
+        """, height=230, scrolling=False)
 
 if page2 != "— нет —":
     active_page = page2
