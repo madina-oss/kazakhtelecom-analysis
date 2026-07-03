@@ -149,7 +149,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-YEARS = [2020, 2021, 2022, 2023, 2024]
+DEFAULT_YEARS = [2020, 2021, 2022, 2023, 2024]
 
 FIELDS = [
     ("revenue", "Выручка", "ОПиУ", "Доходы от основной деятельности"),
@@ -211,16 +211,38 @@ DEMO_DATA = {
 # ──────────────────────────────────────────────────────────────────────
 # SESSION STATE
 # ──────────────────────────────────────────────────────────────────────
+if "years" not in st.session_state:
+    st.session_state.years = list(DEFAULT_YEARS)
 if "data" not in st.session_state:
-    st.session_state.data = {y: {} for y in YEARS}
+    st.session_state.data = {y: {} for y in st.session_state.years}
 if "company_name" not in st.session_state:
     st.session_state.company_name = "Казахтелеком"
 if "unit" not in st.session_state:
     st.session_state.unit = "тыс. тенге"
 if "current_year" not in st.session_state:
-    st.session_state.current_year = YEARS[0]
+    st.session_state.current_year = st.session_state.years[0]
 if "calculated" not in st.session_state:
     st.session_state.calculated = False
+
+
+def add_year(y):
+    """Добавляет новый год в список годов, сохраняя данные всех остальных лет."""
+    if y not in st.session_state.years:
+        st.session_state.years.append(y)
+        st.session_state.years.sort()
+    if y not in st.session_state.data:
+        st.session_state.data[y] = {}
+    st.session_state.current_year = y
+
+
+def remove_year(y):
+    """Удаляет год и его данные, не затрагивая остальные годы."""
+    if y in st.session_state.years:
+        st.session_state.years.remove(y)
+    if y in st.session_state.data:
+        del st.session_state.data[y]
+    if st.session_state.current_year == y:
+        st.session_state.current_year = st.session_state.years[0] if st.session_state.years else None
 
 
 def safe_div(a, b):
@@ -302,7 +324,8 @@ def fmt(v, suffix=""):
 
 
 def active_years():
-    return [y for y in YEARS if any(v is not None for v in st.session_state.data[y].values())]
+    return [y for y in sorted(st.session_state.years)
+            if any(v is not None for v in st.session_state.data.get(y, {}).values())]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -372,16 +395,44 @@ if active_page == "✏️ Ввод данных":
 
     with st.container(border=True):
         st.markdown("### ВЫБЕРИТЕ ГОД ДЛЯ ВВОДА")
+        st.caption("Данные каждого года сохраняются отдельно — можно добавить новый год или удалить ненужный, не теряя остальные.")
 
-        cols = st.columns(len(YEARS))
-        for i, y in enumerate(YEARS):
-            with cols[i]:
-                btn_type = "primary" if y == st.session_state.current_year else "secondary"
-                if st.button(str(y), key=f"yr_{y}", type=btn_type, use_container_width=True):
-                    st.session_state.current_year = y
-                    st.rerun()
+        yrs_sorted = sorted(st.session_state.years)
+        if yrs_sorted:
+            cols = st.columns(len(yrs_sorted))
+            for i, y in enumerate(yrs_sorted):
+                with cols[i]:
+                    btn_type = "primary" if y == st.session_state.current_year else "secondary"
+                    if st.button(str(y), key=f"yr_{y}", type=btn_type, use_container_width=True):
+                        st.session_state.current_year = y
+                        st.rerun()
+        else:
+            st.info("Нет добавленных годов. Добавьте год ниже.")
 
+        acol1, acol2, acol3 = st.columns([1.3, 1, 1.3])
+        with acol1:
+            new_year = st.number_input(
+                "Добавить год", min_value=1990, max_value=2100,
+                value=(max(yrs_sorted) + 1) if yrs_sorted else 2024,
+                step=1, key="new_year_input", label_visibility="collapsed",
+            )
+        with acol2:
+            if st.button("➕ Добавить год", use_container_width=True):
+                add_year(int(new_year))
+                st.rerun()
+        with acol3:
+            if st.session_state.current_year is not None and st.button(
+                f"🗑️ Удалить год {st.session_state.current_year}", use_container_width=True
+            ):
+                remove_year(st.session_state.current_year)
+                st.rerun()
+
+    if st.session_state.current_year is None:
+        st.warning("Добавьте хотя бы один год, чтобы начать ввод данных.")
+    else:
+      with st.container(border=True):
         year = st.session_state.current_year
+        st.markdown(f"### ДАННЫЕ ЗА {year} ГОД")
         groups = ["ОПиУ", "Баланс", "ОДС"]
 
         for grp in groups:
@@ -412,8 +463,8 @@ if active_page == "✏️ Ввод данных":
                 st.session_state.calculated = True
                 st.success("✅ Коэффициенты рассчитаны! Перейдите в раздел «Анализ» слева.")
     with bcol2:
-        if st.button("🗑️ Очистить всё", use_container_width=True):
-            st.session_state.data = {y: {} for y in YEARS}
+        if st.button("🗑️ Очистить все данные", use_container_width=True):
+            st.session_state.data = {y: {} for y in st.session_state.years}
             st.session_state.calculated = False
             st.rerun()
 
@@ -613,339 +664,155 @@ elif active_page == "💵 Денежный поток":
 # СТРАНИЦА: ДАШБОРД
 # ──────────────────────────────────────────────────────────────────────
 elif active_page == "🎯 Дашборд":
-    st.markdown("# 🎯 Сводный дашборд")
-    st.caption("Все ключевые коэффициенты по всем годам — с оценкой 🟢 🟡 🔴 и нормами.")
+    st.markdown("# Сводный дашборд")
+    st.caption("Все ключевые коэффициенты по всем годам в одной таблице.")
 
     yrs = active_years()
     if not yrs:
-        st.warning("⚠️ Нет данных. Перейдите в «Ввод данных», введите данные и нажмите «Рассчитать».")
+        st.warning("Нет данных. Перейдите в «Ввод данных» и нажмите «Рассчитать».")
     else:
         results = {y: calc_ratios(y) for y in yrs}
         unit = st.session_state.unit
+
         last_y = yrs[-1]
         r = results[last_y]
-
-        # ── Топ-метрики последнего года ──
-        st.markdown(f"#### Ключевые показатели — {last_y} год")
-        c1, c2, c3, c4, c5 = st.columns(5)
+        c1, c2, c3, c4 = st.columns(4)
         with c1:
-            st.metric("Выручка", fmt_money(r["revenue"]), help=f"тыс. тенге")
+            st.metric("Выручка", fmt_money(r['revenue']), help=unit)
         with c2:
-            st.metric("Чистая прибыль", fmt_money(r["net"]), help="тыс. тенге")
+            st.metric("ROE", f"{fmt(r['ROE %'], '%')}")
         with c3:
-            v = r["ROE %"]
-            st.metric("ROE", f"{v}%" if v else "н/д", delta="норма > 10%" if v and v >= 10 else ("⚠ ниже нормы" if v else None))
+            st.metric("Net Margin", f"{fmt(r['Net Margin %'], '%')}")
         with c4:
-            v = r["Net Margin %"]
-            st.metric("Net Margin", f"{v}%" if v else "н/д", delta="норма > 5%" if v and v >= 5 else ("⚠ ниже нормы" if v else None))
-        with c5:
-            v = r["Debt/Equity"]
-            st.metric("Debt/Equity", f"{v}" if v else "н/д", delta="норма < 1.5" if v and v <= 1.5 else ("⚠ выше нормы" if v else None))
+            st.metric("Debt/Equity", f"{fmt(r['Debt/Equity'])}")
 
-        st.markdown("---")
+        with st.container(border=True):
+            st.markdown(f"### 🎯 Все коэффициенты — {st.session_state.company_name} (суммы в {unit})")
+            rows = [
+                ("Выручка", "revenue", True), ("Чистая прибыль", "net", True),
+                ("EBITDA", "ebitda", True), ("Итого активы", "totalassets", True),
+                ("Собственный капитал", "equity", True),
+                ("Current Ratio", "Current Ratio", False), ("Quick Ratio", "Quick Ratio", False),
+                ("ROE %", "ROE %", False), ("ROA %", "ROA %", False),
+                ("Net Margin %", "Net Margin %", False), ("EBITDA Margin %", "EBITDA Margin %", False),
+                ("Debt/Equity", "Debt/Equity", False), ("Debt/Assets", "Debt/Assets", False),
+                ("Net Debt/EBITDA", "Net Debt/EBITDA", False), ("Interest Coverage", "Interest Coverage", False),
+                ("Asset Turnover", "Asset Turnover", False), ("DSO (дней)", "DSO (дней)", False),
+                ("CFO/Net Income", "CFO/Net Income", False), ("FCF", "FCF", True),
+                ("FCF Margin %", "FCF Margin %", False),
+            ]
+            table = {}
+            for name, key, is_money in rows:
+                table[name] = {
+                    y: (fmt_money(results[y][key]) if is_money else results[y][key])
+                       if results[y].get(key) is not None else "н/д"
+                    for y in yrs
+                }
+            st.dataframe(pd.DataFrame(table).T, use_container_width=True)
 
-        # ── Определение статуса коэффициента ──
-        def get_status(val, good_lo, good_hi, reverse=False):
-            """reverse=True когда чем меньше — тем лучше (долги, DSO)"""
-            if val is None:
-                return "⚪", "#888780"
-            if not reverse:
-                if val >= good_lo:
-                    return "🟢", "#0F6E56"
-                elif val >= good_lo * 0.6:
-                    return "🟡", "#854F0B"
-                else:
-                    return "🔴", "#A32D2D"
-            else:
-                if val <= good_hi:
-                    return "🟢", "#0F6E56"
-                elif val <= good_hi * 1.5:
-                    return "🟡", "#854F0B"
-                else:
-                    return "🔴", "#A32D2D"
-
-        # ── Таблица коэффициентов со светофором ──
-        RATIO_DEFS = [
-            # (название, ключ, норма_текст, good_lo, good_hi, reverse, суффикс)
-            ("💧 ЛИКВИДНОСТЬ", None, None, None, None, False, ""),
-            ("Current Ratio", "Current Ratio", "норма ≥ 1.5 — 2.0", 1.5, 3.0, False, ""),
-            ("Quick Ratio", "Quick Ratio", "норма ≥ 1.0", 1.0, 3.0, False, ""),
-            ("Cash Ratio", "Cash Ratio", "норма ≥ 0.2", 0.2, 2.0, False, ""),
-            ("📈 ПРИБЫЛЬНОСТЬ", None, None, None, None, False, ""),
-            ("Gross Margin", "Gross Margin %", "норма ≥ 20%", 20, 100, False, "%"),
-            ("EBIT Margin", "EBIT Margin %", "норма ≥ 10%", 10, 100, False, "%"),
-            ("EBITDA Margin", "EBITDA Margin %", "норма ≥ 15%", 15, 100, False, "%"),
-            ("Net Margin", "Net Margin %", "норма ≥ 5%", 5, 100, False, "%"),
-            ("ROE", "ROE %", "норма ≥ 10%", 10, 100, False, "%"),
-            ("ROA", "ROA %", "норма ≥ 5%", 5, 100, False, "%"),
-            ("🏦 ДОЛГОВАЯ НАГРУЗКА", None, None, None, None, False, ""),
-            ("Debt/Equity", "Debt/Equity", "норма < 1.5", 0, 1.5, True, ""),
-            ("Debt/Assets", "Debt/Assets", "норма < 0.5", 0, 0.5, True, ""),
-            ("Equity Ratio", "Equity Ratio %", "норма ≥ 40%", 40, 100, False, "%"),
-            ("Net Debt/EBITDA", "Net Debt/EBITDA", "норма < 2.5", 0, 2.5, True, "×"),
-            ("Interest Coverage", "Interest Coverage", "норма ≥ 3×", 3, 100, False, "×"),
-            ("⚙️ ЭФФЕКТИВНОСТЬ", None, None, None, None, False, ""),
-            ("Asset Turnover", "Asset Turnover", "телеком: 0.3–0.5", 0.3, 0.6, False, ""),
-            ("DSO (дней)", "DSO (дней)", "норма < 45 дней", 0, 45, True, " дн."),
-            ("💵 ДЕНЕЖНЫЙ ПОТОК", None, None, None, None, False, ""),
-            ("CFO/Net Income", "CFO/Net Income", "норма ≥ 0.8", 0.8, 10, False, "×"),
-            ("FCF Margin", "FCF Margin %", "норма ≥ 5%", 5, 100, False, "%"),
-            ("CFO/Capex", "CFO/Capex", "норма ≥ 1.5", 1.5, 10, False, "×"),
-        ]
-
-        # HTML-таблица со светофором
-        header_cells = "".join([f"<th style='text-align:center;padding:8px 14px;background:#f8f7f4;font-size:12px;color:#888780'>{y}</th>" for y in yrs])
-        rows_html = ""
-        for item in RATIO_DEFS:
-            name, key, norm, glo, ghi, rev, sfx = item
-            if key is None:
-                # Заголовок группы
-                rows_html += f"<tr><td colspan='{len(yrs)+3}' style='background:#f0ede6;padding:8px 12px;font-size:11px;font-weight:700;color:#5F5E5A;letter-spacing:.05em'>{name}</td></tr>"
-                continue
-            norm_cell = f"<td style='font-size:11px;color:#888780;padding:6px 12px;white-space:nowrap'>{norm}</td>"
-            val_cells = ""
-            for y in yrs:
-                val = results[y].get(key)
-                icon, color = get_status(val, glo, ghi, rev)
-                display = f"{val}{sfx}" if val is not None else "н/д"
-                val_cells += f"<td style='text-align:center;padding:6px 12px;font-size:13px;color:{color};font-weight:500'>{icon} {display}</td>"
-            rows_html += f"<tr style='border-bottom:1px solid #f0ede6'><td style='padding:8px 12px;font-size:13px;color:#1a1a18;white-space:nowrap'>{name}</td>{norm_cell}{val_cells}</tr>"
-
-        html_table = f"""
-        <div style='overflow-x:auto;background:#fff;border:1px solid #e0ddd6;border-radius:10px;margin-bottom:16px'>
-        <table style='width:100%;border-collapse:collapse;font-family:Inter,system-ui,sans-serif'>
-            <thead>
-                <tr style='border-bottom:2px solid #e0ddd6'>
-                    <th style='text-align:left;padding:10px 12px;background:#f8f7f4;font-size:12px;color:#888780;min-width:160px'>Коэффициент</th>
-                    <th style='text-align:left;padding:10px 12px;background:#f8f7f4;font-size:12px;color:#888780;min-width:140px'>Норма</th>
-                    {header_cells}
-                </tr>
-            </thead>
-            <tbody>{rows_html}</tbody>
-        </table>
-        </div>
-        <div style='font-size:11px;color:#888780;margin-bottom:12px'>
-        🟢 В норме &nbsp;&nbsp; 🟡 Требует внимания &nbsp;&nbsp; 🔴 Ниже нормы / риск &nbsp;&nbsp; ⚪ Нет данных
-        </div>
-        """
-        st.markdown(html_table, unsafe_allow_html=True)
-
-        # Скачать CSV
-        export = {}
-        for item in RATIO_DEFS:
-            name, key, norm, glo, ghi, rev, sfx = item
-            if key is None:
-                continue
-            export[name] = {y: results[y].get(key) for y in yrs}
-        csv = pd.DataFrame(export).T.to_csv().encode("utf-8")
-        st.download_button("⬇️ Скачать коэффициенты (CSV)", csv, "kazakhtelecom_ratios.csv", "text/csv")
+            csv = pd.DataFrame(table).T.to_csv().encode("utf-8")
+            st.download_button("⬇️ Скачать коэффициенты (CSV)", csv, "ratios.csv", "text/csv")
 
 # ──────────────────────────────────────────────────────────────────────
 # СТРАНИЦА: СИГНАЛЫ
 # ──────────────────────────────────────────────────────────────────────
 elif active_page == "🚦 Сигналы":
-    st.markdown("# 🚦 Сигналы и интерпретация")
-    st.caption("Автоматический светофор по каждому коэффициенту — что значит, норма, и вывод.")
+    st.markdown("# Сигналы и интерпретация")
+    st.caption("Автоматическая интерпретация коэффициентов на основе общепринятых норм.")
 
     yrs = active_years()
     if not yrs:
-        st.warning("⚠️ Нет данных. Перейдите в «Ввод данных», введите данные и нажмите «Рассчитать».")
+        st.warning("Нет данных. Перейдите в «Ввод данных» и нажмите «Рассчитать».")
     else:
-        last_y = yrs[-1]
-        r = calc_ratios(last_y)
 
-        st.markdown(f"#### Анализ за **{last_y}** год — {st.session_state.company_name}")
+        def get_signals(year):
+            r = calc_ratios(year)
+            signals = []
 
-        # Полный список сигналов с подробным описанием
-        SIGNALS = [
-            {
-                "group": "💧 Ликвидность",
-                "key": "Current Ratio",
-                "name": "Current Ratio (Коэффициент текущей ликвидности)",
-                "formula": "Оборотные активы ÷ Краткосрочные обязательства",
-                "norm": "Норма: ≥ 1.5 — хорошо | 1.0–1.5 — допустимо | < 1.0 — риск",
-                "good_lo": 1.5, "good_hi": 999, "reverse": False, "suffix": "",
-                "good_msg": "Компания способна покрыть краткосрочные обязательства. Хорошая платёжеспособность.",
-                "warn_msg": "Ликвидность на допустимом уровне, но запас прочности небольшой. Требует мониторинга.",
-                "bad_msg":  "Низкая ликвидность. Оборотных активов может не хватить для погашения долгов — риск дефолта.",
-            },
-            {
-                "group": "💧 Ликвидность",
-                "key": "Quick Ratio",
-                "name": "Quick Ratio (Быстрая ликвидность)",
-                "formula": "(Оборотные активы − Запасы) ÷ Краткосрочные обязательства",
-                "norm": "Норма: ≥ 1.0 — хорошо | 0.7–1.0 — допустимо | < 0.7 — риск",
-                "good_lo": 1.0, "good_hi": 999, "reverse": False, "suffix": "",
-                "good_msg": "Компания может быстро покрыть обязательства без продажи запасов.",
-                "warn_msg": "Умеренный уровень быстрой ликвидности. Зависит от скорости сбора дебиторки.",
-                "bad_msg":  "Недостаточно ликвидных активов без учёта запасов — повышенный риск.",
-            },
-            {
-                "group": "📈 Прибыльность",
-                "key": "ROE %",
-                "name": "ROE (Рентабельность собственного капитала)",
-                "formula": "Чистая прибыль ÷ Собственный капитал × 100%",
-                "norm": "Норма: ≥ 15% — отлично | 10–15% — хорошо | 5–10% — допустимо | < 5% — низко",
-                "good_lo": 10, "good_hi": 999, "reverse": False, "suffix": "%",
-                "good_msg": "Хорошая отдача на вложенный акционерами капитал.",
-                "warn_msg": "Умеренная рентабельность капитала. Может быть приемлемо для телекоммуникационной отрасли с высоким Capex.",
-                "bad_msg":  "Низкая рентабельность капитала. Компания генерирует мало прибыли на вложенный капитал.",
-            },
-            {
-                "group": "📈 Прибыльность",
-                "key": "ROA %",
-                "name": "ROA (Рентабельность активов)",
-                "formula": "Чистая прибыль ÷ Итого активы × 100%",
-                "norm": "Норма: ≥ 5% — хорошо | 3–5% — допустимо | < 3% — низко",
-                "good_lo": 5, "good_hi": 999, "reverse": False, "suffix": "%",
-                "good_msg": "Активы компании эффективно генерируют прибыль.",
-                "warn_msg": "Умеренная отдача от активов. Для капиталоёмкого телекома (много ОС) — это нормально.",
-                "bad_msg":  "Низкая рентабельность активов. Возможна избыточная нагрузка активов без соответствующей прибыли.",
-            },
-            {
-                "group": "📈 Прибыльность",
-                "key": "Net Margin %",
-                "name": "Net Margin (Чистая маржа)",
-                "formula": "Чистая прибыль ÷ Выручка × 100%",
-                "norm": "Норма: ≥ 10% — хорошо | 5–10% — допустимо | < 5% — низко",
-                "good_lo": 10, "good_hi": 999, "reverse": False, "suffix": "%",
-                "good_msg": "Хорошая чистая маржинальность — компания эффективно контролирует расходы.",
-                "warn_msg": "Умеренная маржа. Чувствительна к росту операционных затрат.",
-                "bad_msg":  "Очень низкая маржа. Небольшой рост расходов может привести к убытку.",
-            },
-            {
-                "group": "📈 Прибыльность",
-                "key": "EBITDA Margin %",
-                "name": "EBITDA Margin",
-                "formula": "EBITDA ÷ Выручка × 100%",
-                "norm": "Норма для телекома: ≥ 35% — хорошо | 25–35% — допустимо | < 25% — низко",
-                "good_lo": 35, "good_hi": 999, "reverse": False, "suffix": "%",
-                "good_msg": "Высокая EBITDA маржа — компания генерирует хороший операционный кэш.",
-                "warn_msg": "Умеренная EBITDA маржа. Требует контроля затрат.",
-                "bad_msg":  "Низкая EBITDA маржа для телекома. Высокие операционные затраты снижают доходность.",
-            },
-            {
-                "group": "🏦 Долговая нагрузка",
-                "key": "Debt/Equity",
-                "name": "Debt/Equity (Долг к капиталу)",
-                "formula": "Итого обязательства ÷ Собственный капитал",
-                "norm": "Норма: < 1.0 — хорошо | 1.0–1.5 — допустимо | > 2.0 — высокий риск",
-                "good_lo": 0, "good_hi": 1.0, "reverse": True, "suffix": "×",
-                "good_msg": "Умеренный долг. Компания финансово устойчива.",
-                "warn_msg": "Повышенная долговая нагрузка. Допустимо при стабильном денежном потоке.",
-                "bad_msg":  "Высокая долговая нагрузка — риск финансовой неустойчивости при росте ставок.",
-            },
-            {
-                "group": "🏦 Долговая нагрузка",
-                "key": "Net Debt/EBITDA",
-                "name": "Net Debt / EBITDA",
-                "formula": "Чистый долг ÷ EBITDA",
-                "norm": "Норма: < 2.0 — хорошо | 2.0–3.5 — допустимо | > 3.5 — риск",
-                "good_lo": 0, "good_hi": 2.0, "reverse": True, "suffix": "×",
-                "good_msg": "Комфортное соотношение долга к EBITDA. Компания может быстро погасить долг.",
-                "warn_msg": "Умеренно высокая нагрузка. Стандарт для телекома с большим Capex.",
-                "bad_msg":  "Высокая долговая нагрузка по EBITDA — риск рефинансирования.",
-            },
-            {
-                "group": "🏦 Долговая нагрузка",
-                "key": "Interest Coverage",
-                "name": "Interest Coverage (Покрытие процентов)",
-                "formula": "EBIT ÷ Финансовые расходы",
-                "norm": "Норма: ≥ 3× — хорошо | 1.5–3× — допустимо | < 1.5× — риск",
-                "good_lo": 3, "good_hi": 999, "reverse": False, "suffix": "×",
-                "good_msg": "Прибыль уверенно покрывает процентные расходы.",
-                "warn_msg": "Умеренное покрытие процентов. Небольшой запас прочности.",
-                "bad_msg":  "Низкое покрытие процентов — риск дефолта при снижении операционной прибыли.",
-            },
-            {
-                "group": "⚙️ Эффективность",
-                "key": "Asset Turnover",
-                "name": "Asset Turnover (Оборачиваемость активов)",
-                "formula": "Выручка ÷ Итого активы",
-                "norm": "Норма для телекома: 0.3–0.5 — норма | < 0.3 — низко | > 0.7 — высоко",
-                "good_lo": 0.3, "good_hi": 0.7, "reverse": False, "suffix": "×",
-                "good_msg": "Нормальная оборачиваемость активов для телекоммуникационной отрасли.",
-                "warn_msg": "Умеренная оборачиваемость. Телеком — капиталоёмкая отрасль, низкий показатель — норма.",
-                "bad_msg":  "Низкая оборачиваемость активов. Активы растут быстрее выручки.",
-            },
-            {
-                "group": "💵 Денежный поток",
-                "key": "CFO/Net Income",
-                "name": "CFO / Net Income (Качество прибыли)",
-                "formula": "Операционный денежный поток ÷ Чистая прибыль",
-                "norm": "Норма: ≥ 1.0 — отлично | 0.8–1.0 — хорошо | < 0.8 — требует проверки",
-                "good_lo": 0.8, "good_hi": 999, "reverse": False, "suffix": "×",
-                "good_msg": "Прибыль подтверждена денежным потоком. Высокое качество прибыли.",
-                "warn_msg": "CFO немного ниже прибыли. Возможно влияние изменений оборотного капитала.",
-                "bad_msg":  "Прибыль слабо подтверждена денежным потоком. Требует анализа качества прибыли.",
-            },
-        ]
+            def add(val, lo, hi, name, good_txt, warn_txt, bad_txt, suffix=""):
+                if val is None:
+                    return
+                if lo <= val <= hi:
+                    signals.append(("good", f"{name}: {val}{suffix}", good_txt))
+                elif val < lo * 0.6 or val > hi * 1.8:
+                    signals.append(("bad", f"{name}: {val}{suffix}", bad_txt))
+                else:
+                    signals.append(("warn", f"{name}: {val}{suffix}", warn_txt))
 
-        # Счётчик по цветам
-        total_green = sum(1 for s in SIGNALS if r.get(s["key"]) is not None and
-                         (r[s["key"]] >= s["good_lo"] if not s["reverse"] else r[s["key"]] <= s["good_hi"]))
-        total_filled = sum(1 for s in SIGNALS if r.get(s["key"]) is not None)
+            add(r["Current Ratio"], 1.5, 3, "Current Ratio",
+                "Хорошая краткосрочная ликвидность.",
+                "Умеренная ликвидность, требует мониторинга.",
+                "Низкая ликвидность — риск покрытия обязательств.")
+            add(r["ROE %"], 10, 30, "ROE", "Высокая рентабельность капитала.",
+                "Умеренная рентабельность капитала.",
+                "Низкая рентабельность капитала.", "%")
+            add(r["ROA %"], 5, 15, "ROA", "Эффективное использование активов.",
+                "Умеренная отдача от активов.",
+                "Низкая рентабельность активов.", "%")
+            add(r["Net Margin %"], 5, 30, "Net Margin", "Хорошая чистая маржинальность.",
+                "Умеренная маржа, чувствительна к расходам.",
+                "Очень низкая маржа — риск убытка.", "%")
+            add(r["Debt/Equity"], 0, 1, "Debt/Equity", "Умеренный долг к капиталу.",
+                "Повышенная долговая нагрузка.",
+                "Высокая долговая нагрузка — риск устойчивости.")
+            if r.get("CFO/Net Income") is not None:
+                if r["CFO/Net Income"] >= 0.8:
+                    signals.append(("good", f"CFO/Net Income: {r['CFO/Net Income']}×",
+                                     "Прибыль подтверждена денежным потоком."))
+                else:
+                    signals.append(("warn", f"CFO/Net Income: {r['CFO/Net Income']}×",
+                                     "CFO отличается от прибыли — проверить качество прибыли."))
+            return signals
 
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            green = sum(1 for s in SIGNALS if r.get(s["key"]) is not None and
-                       (r[s["key"]] >= s["good_lo"] if not s["reverse"] else r[s["key"]] <= s["good_hi"]))
-            st.markdown(f"<div style='background:#E1F5EE;border-radius:8px;padding:12px;text-align:center'><div style='font-size:28px'>🟢</div><div style='font-size:22px;font-weight:600;color:#0F6E56'>{green}</div><div style='font-size:12px;color:#5F5E5A'>В норме</div></div>", unsafe_allow_html=True)
-        with col_b:
-            yellow = sum(1 for s in SIGNALS if r.get(s["key"]) is not None and
-                        not (r[s["key"]] >= s["good_lo"] if not s["reverse"] else r[s["key"]] <= s["good_hi"]) and
-                        (r[s["key"]] >= s["good_lo"] * 0.6 if not s["reverse"] else r[s["key"]] <= s["good_hi"] * 1.5))
-            st.markdown(f"<div style='background:#FAEEDA;border-radius:8px;padding:12px;text-align:center'><div style='font-size:28px'>🟡</div><div style='font-size:22px;font-weight:600;color:#854F0B'>{yellow}</div><div style='font-size:12px;color:#5F5E5A'>Внимание</div></div>", unsafe_allow_html=True)
-        with col_c:
-            red = total_filled - green - yellow
-            st.markdown(f"<div style='background:#FCEBEB;border-radius:8px;padding:12px;text-align:center'><div style='font-size:28px'>🔴</div><div style='font-size:22px;font-weight:600;color:#A32D2D'>{red}</div><div style='font-size:12px;color:#5F5E5A'>Риск / ниже нормы</div></div>", unsafe_allow_html=True)
+        icons = {"good": "✅", "warn": "⚠️", "bad": "❌"}
 
-        st.markdown("")
+        if len(yrs) == 1:
+            tabs = [None]
+        else:
+            tabs = st.tabs([str(y) for y in yrs])
 
-        # Карточки сигналов
-        prev_group = ""
-        for s in SIGNALS:
-            val = r.get(s["key"])
-            if val is None:
-                continue
+        for i, y in enumerate(yrs):
+            ctx = tabs[i] if tabs[0] is not None else st.container()
+            with ctx:
+                signals = get_signals(y)
+                with st.container(border=True):
+                    st.markdown(f"### 🚦 Сигналы по данным {y} — {st.session_state.company_name}")
+                    n_good = sum(1 for s in signals if s[0] == "good")
+                    n_warn = sum(1 for s in signals if s[0] == "warn")
+                    n_bad = sum(1 for s in signals if s[0] == "bad")
+                    st.caption(f"✅ Хорошо: {n_good}   ⚠️ Внимание: {n_warn}   ❌ Риск: {n_bad}")
+                    cols = st.columns(2)
+                    for j, (typ, title, desc) in enumerate(signals):
+                        with cols[j % 2]:
+                            bg = {"good": "#E1F5EE", "warn": "#FAEEDA", "bad": "#FCEBEB"}[typ]
+                            color = {"good": "#0F6E56", "warn": "#854F0B", "bad": "#A32D2D"}[typ]
+                            st.markdown(f"""
+                            <div style="background:{bg};border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+                                <div style="font-size:13px;font-weight:600;color:{color};margin-bottom:3px">{icons[typ]} {title}</div>
+                                <div style="font-size:12px;color:#5F5E5A;line-height:1.4">{desc}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
 
-            if s["group"] != prev_group:
-                st.markdown(f"**{s['group']}**")
-                prev_group = s["group"]
+        if len(yrs) > 1:
+            with st.container(border=True):
+                st.markdown(f"### 📊 Сравнение сигналов по годам — {st.session_state.company_name}")
+                comp = {}
+                for y in yrs:
+                    signals = get_signals(y)
+                    by_name = {title.split(":")[0]: icons[typ] for typ, title, _ in signals}
+                    comp[y] = by_name
+                all_names = []
+                for y in yrs:
+                    for name in comp[y]:
+                        if name not in all_names:
+                            all_names.append(name)
+                comp_df = pd.DataFrame({y: {name: comp[y].get(name, "—") for name in all_names} for y in yrs})
+                st.dataframe(comp_df, use_container_width=True)
 
-            # Определяем цвет
-            if not s["reverse"]:
-                is_good = val >= s["good_lo"]
-                is_warn = val >= s["good_lo"] * 0.6
-            else:
-                is_good = val <= s["good_hi"]
-                is_warn = val <= s["good_hi"] * 1.5
-
-            if is_good:
-                icon, bg, color, msg = "🟢", "#E1F5EE", "#0F6E56", s["good_msg"]
-            elif is_warn:
-                icon, bg, color, msg = "🟡", "#FAEEDA", "#854F0B", s["warn_msg"]
-            else:
-                icon, bg, color, msg = "🔴", "#FCEBEB", "#A32D2D", s["bad_msg"]
-
-            display_val = f"{val}{s['suffix']}"
-
-            st.markdown(f"""
-            <div style="background:{bg};border-radius:10px;padding:14px 18px;margin-bottom:10px;border-left:4px solid {color}">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-                    <div style="font-size:13.5px;font-weight:600;color:{color}">{icon} {s['name']}</div>
-                    <div style="font-size:20px;font-weight:700;color:{color};margin-left:12px">{display_val}</div>
-                </div>
-                <div style="font-size:11.5px;color:#888780;margin-bottom:5px">📐 Формула: {s['formula']}</div>
-                <div style="font-size:11.5px;color:#888780;margin-bottom:6px">📏 {s['norm']}</div>
-                <div style="font-size:13px;color:#3a3a38;line-height:1.5">💬 {msg}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("")
-        st.warning("⚠️ Интерпретация автоматическая — на основе общепринятых финансовых норм. "
-                   "Нормы варьируются по отраслям и рыночным условиям. "
-                   "Используйте как аналитическую отправную точку, а не окончательный вывод.")
+        st.warning(
+            "⚠️ Сигналы — автоматическая интерпретация на основе общепринятых норм. "
+            "Нормы варьируются по отраслям. Используйте как отправную точку, а не окончательный вывод."
+        )
 
 st.sidebar.markdown("---")
 st.sidebar.caption("Индивидуальный проект · Финансовый анализ · АФО 2026")
