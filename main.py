@@ -403,7 +403,7 @@ if active_page == "✏️ Ввод данных":
                     st.session_state.data[year][key] = val
             st.markdown("")
 
-    bcol1, bcol2, bcol3 = st.columns([1.3, 1.5, 1])
+    bcol1, bcol2 = st.columns([1.3, 1])
     with bcol1:
         if st.button("Рассчитать коэффициенты", type="primary", use_container_width=True):
             if not active_years():
@@ -412,21 +412,14 @@ if active_page == "✏️ Ввод данных":
                 st.session_state.calculated = True
                 st.success("✅ Коэффициенты рассчитаны! Перейдите в раздел «Анализ» слева.")
     with bcol2:
-        if st.button("📥 Загрузить демо-данные (Казахтелеком, тыс. ₸)", use_container_width=True):
-            for y in YEARS:
-                st.session_state.data[y] = dict(DEMO_DATA.get(y, {}))
-            st.session_state.unit = "тыс. тенге"
-            st.session_state.calculated = True
-            st.rerun()
-    with bcol3:
         if st.button("🗑️ Очистить всё", use_container_width=True):
             st.session_state.data = {y: {} for y in YEARS}
             st.session_state.calculated = False
             st.rerun()
 
     st.info(
-        "💡 Демо-данные введены в **тысячах тенге** (например, выручка 2024 года = "
-        "494 600 000 тыс. ₸ = 494,6 млрд ₸). Заполните хотя бы 1 год для расчёта. "
+        "💡 Введите данные в тысячах тенге (тыс. ₸). "
+        "Заполните хотя бы 1 год для расчёта. "
         "Поля можно оставить пустыми — коэффициент просто не рассчитается."
     )
 
