@@ -5,6 +5,7 @@
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -142,6 +143,82 @@ st.markdown("""
 
     div[data-testid="stNotification"] {
         border-radius: 8px !important;
+    }
+
+    /* ── Брендовая карточка в сайдбаре ─────────────────────────── */
+    .brand-card {
+        background: linear-gradient(135deg, #134d89 0%, #185FA5 55%, #378ADD 100%);
+        border-radius: 16px;
+        padding: 22px 16px 18px 16px;
+        margin-bottom: 18px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 6px 18px rgba(24,95,165,0.28);
+    }
+    .brand-card::before {
+        content: "";
+        position: absolute;
+        top: -26px; right: -22px;
+        width: 100px; height: 100px;
+        background: rgba(255,255,255,0.09);
+        border-radius: 50%;
+    }
+    .brand-card::after {
+        content: "";
+        position: absolute;
+        bottom: -34px; left: -16px;
+        width: 80px; height: 80px;
+        background: rgba(255,255,255,0.07);
+        border-radius: 50%;
+    }
+    .brand-icon-row {
+        font-size: 30px;
+        line-height: 1;
+        margin-bottom: 8px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.18));
+        position: relative;
+        z-index: 1;
+    }
+    .brand-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: 0.01em;
+        margin-bottom: 3px;
+        position: relative;
+        z-index: 1;
+    }
+    .brand-sub {
+        font-size: 10.5px;
+        font-weight: 500;
+        color: rgba(255,255,255,0.88);
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        position: relative;
+        z-index: 1;
+    }
+    .brand-decor {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255,255,255,0.18);
+        font-size: 15px;
+        letter-spacing: 9px;
+        color: rgba(255,255,255,0.65);
+        position: relative;
+        z-index: 1;
+    }
+
+    /* ── Компактный калькулятор в сайдбаре ─────────────────────── */
+    .calc-wrap div[data-testid="stExpander"] {
+        border: 1px solid #e0ddd6 !important;
+        border-radius: 10px !important;
+        background: #ffffff !important;
+    }
+    .calc-wrap summary {
+        font-size: 12.5px !important;
+        font-weight: 600 !important;
+        color: #5F5E5A !important;
     }
 
     #MainMenu {visibility: hidden;}
