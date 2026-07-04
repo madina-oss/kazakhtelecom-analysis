@@ -492,7 +492,7 @@ with st.sidebar:
     page2 = st.radio(
         "nav2",
         ["— нет —", "💧 Ликвидность", "📈 Прибыльность", "🏦 Долговая нагрузка",
-         "⚙️ Эффективность", "💵 Денежный поток"],
+         "⚙️ Эффективность", "💵 Денежный поток", "📉 Прогноз", "📝 Вывод"],
         label_visibility="collapsed", key="nav_analysis", index=0
     )
 
@@ -1089,6 +1089,218 @@ elif active_page == "🚦 Сигналы":
             "⚠️ Сигналы — автоматическая интерпретация на основе общепринятых норм. "
             "Нормы варьируются по отраслям. Используйте как отправную точку, а не окончательный вывод."
         )
+
+
+
+# ──────────────────────────────────────────────────────────────────────
+# СТРАНИЦА: ПРОГНОЗ
+# ──────────────────────────────────────────────────────────────────────
+elif active_page == "📉 Прогноз":
+    st.markdown("# 📉 Прогноз на 3 года")
+    st.caption(
+        "Base case и Stress case — два сценария развития. "
+        "**Не является инвестиционной рекомендацией** — показывает возможные исходы при заданных допущениях."
+    )
+
+    yrs = active_years()
+    if len(yrs) < 2:
+        st.warning("Введите данные минимум за 2 года в «Вводе данных» для расчёта исторического тренда.")
+    else:
+        last_year = yrs[-1]
+        last_rev = st.session_state.data[last_year].get("revenue")
+        last_eq = st.session_state.data[last_year].get("equity")
+        last_ta = st.session_state.data[last_year].get("totalassets")
+
+        if last_rev is None:
+            st.error("Введите выручку за последний год в разделе «Ввод данных».")
+        else:
+            r_last = calc_ratios(last_year)
+            sorted_yrs = sorted(yrs)
+
+            # Исторический рост выручки
+            rev_growths = []
+            for i in range(1, len(sorted_yrs)):
+                pv = st.session_state.data[sorted_yrs[i-1]].get("revenue")
+                cv = st.session_state.data[sorted_yrs[i]].get("revenue")
+                if pv and cv and pv != 0:
+                    rev_growths.append((cv - pv) / pv * 100)
+            hist_growth = round(sum(rev_growths) / len(rev_growths), 1) if rev_growths else 5.0
+
+            last_net_margin = r_last.get("Net Margin %") or 10.0
+            last_roe = r_last.get("ROE %") or 10.0
+            last_de = r_last.get("Debt/Equity") or 1.0
+
+            st.markdown(f"#### Исторические данные (база для прогноза)")
+            mc1, mc2, mc3, mc4 = st.columns(4)
+            with mc1:
+                st.metric("Ср. рост выручки", f"{hist_growth}%", help="Среднее за введённые годы")
+            with mc2:
+                st.metric("Net Margin посл. год", f"{last_net_margin}%")
+            with mc3:
+                st.metric("ROE посл. год", f"{last_roe}%")
+            with mc4:
+                st.metric("Debt/Equity посл. год", f"{last_de}")
+
+            st.markdown("---")
+            st.markdown("#### Допущения — настройте сценарии")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                with st.container(border=True):
+                    st.markdown("**🟢 Base Case — умеренный сценарий**")
+                    base_rev_g = st.slider("Рост выручки (%)", -10.0, 30.0, max(round(hist_growth * 0.7, 1), 2.0), 0.5, key="b_rev")
+                    base_margin = st.slider("Net Margin (%)", 0.0, 40.0, float(last_net_margin), 0.5, key="b_margin")
+                    base_debt_g = st.slider("Рост долга (%)", -10.0, 20.0, 5.0, 0.5, key="b_debt")
+                    st.caption(f"Допущение: выручка +{base_rev_g}%, маржа {base_margin}%, долг +{base_debt_g}%")
+
+            with col2:
+                with st.container(border=True):
+                    st.markdown("**🔴 Stress Case — стресс-сценарий**")
+                    stress_rev_g = st.slider("Рост выручки (%)", -20.0, 15.0, max(round(hist_growth * 0.2, 1), -2.0), 0.5, key="s_rev")
+                    stress_margin = st.slider("Net Margin (%)", 0.0, 30.0, max(float(last_net_margin) - 5.0, 2.0), 0.5, key="s_margin")
+                    stress_debt_g = st.slider("Рост долга (%)", -5.0, 30.0, 12.0, 0.5, key="s_debt")
+                    st.caption(f"Допущение: выручка {stress_rev_g}%, маржа {stress_margin}%, долг +{stress_debt_g}%")
+
+            fwd_years = [last_year + 1, last_year + 2, last_year + 3]
+            base_rev_f, stress_rev_f = [last_rev], [last_rev]
+            for _ in range(3):
+                base_rev_f.append(base_rev_f[-1] * (1 + base_rev_g / 100))
+                stress_rev_f.append(stress_rev_f[-1] * (1 + stress_rev_g / 100))
+            base_rev_f, stress_rev_f = base_rev_f[1:], stress_rev_f[1:]
+            base_net_f = [r * base_margin / 100 for r in base_rev_f]
+            stress_net_f = [r * stress_margin / 100 for r in stress_rev_f]
+            base_roe_f = [round(n / (last_eq or 1) * 100, 1) if last_eq else None for n in base_net_f]
+            stress_roe_f = [round(n / (last_eq or 1) * 100, 1) if last_eq else None for n in stress_net_f]
+
+            last_debt = st.session_state.data[last_year].get("totalliab")
+            base_debt_f, stress_debt_f = [], []
+            if last_debt:
+                bd, sd = last_debt, last_debt
+                for _ in range(3):
+                    bd = bd * (1 + base_debt_g / 100)
+                    sd = sd * (1 + stress_debt_g / 100)
+                    base_debt_f.append(bd)
+                    stress_debt_f.append(sd)
+
+            st.markdown("---")
+            st.markdown("#### Таблица прогноза")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                with st.container(border=True):
+                    st.markdown("**🟢 Base Case**")
+                    df_base = pd.DataFrame({
+                        "Год": fwd_years,
+                        "Выручка (тыс. ₸)": [fmt_money(v) for v in base_rev_f],
+                        "Чист. прибыль": [fmt_money(v) for v in base_net_f],
+                        "Net Margin": [f"{base_margin}%"] * 3,
+                        "ROE (оценка)": [f"{v}%" if v else "н/д" for v in base_roe_f],
+                    })
+                    st.dataframe(df_base, hide_index=True, use_container_width=True)
+                    if base_debt_f:
+                        st.caption(f"Долг к {fwd_years[-1]}: {fmt_money(base_debt_f[-1])} тыс. ₸")
+            with col_b:
+                with st.container(border=True):
+                    st.markdown("**🔴 Stress Case**")
+                    df_stress = pd.DataFrame({
+                        "Год": fwd_years,
+                        "Выручка (тыс. ₸)": [fmt_money(v) for v in stress_rev_f],
+                        "Чист. прибыль": [fmt_money(v) for v in stress_net_f],
+                        "Net Margin": [f"{stress_margin}%"] * 3,
+                        "ROE (оценка)": [f"{v}%" if v else "н/д" for v in stress_roe_f],
+                    })
+                    st.dataframe(df_stress, hide_index=True, use_container_width=True)
+                    if stress_debt_f:
+                        st.caption(f"Долг к {fwd_years[-1]}: {fmt_money(stress_debt_f[-1])} тыс. ₸")
+
+            with st.container(border=True):
+                st.markdown("#### График: Выручка — факт + прогноз (тыс. ₸)")
+                fig = go.Figure()
+                fact_revs = [st.session_state.data[y].get("revenue") for y in sorted_yrs]
+                fig.add_trace(go.Scatter(x=sorted_yrs, y=fact_revs, mode="lines+markers", name="Факт",
+                    line=dict(color="#5F5E5A", width=3), marker=dict(size=8)))
+                fig.add_trace(go.Scatter(x=[last_year]+fwd_years, y=[last_rev]+base_rev_f,
+                    mode="lines+markers", name="Base case",
+                    line=dict(color="#0F6E56", width=3), marker=dict(size=8)))
+                fig.add_trace(go.Scatter(x=[last_year]+fwd_years, y=[last_rev]+stress_rev_f,
+                    mode="lines+markers", name="Stress case",
+                    line=dict(color="#E24B4A", width=3, dash="dash"), marker=dict(size=8)))
+                fig.update_layout(height=360, template="plotly_white",
+                    legend=dict(orientation="h", y=-0.15), margin=dict(t=10, b=10))
+                st.plotly_chart(fig, use_container_width=True)
+
+            st.info("💡 Прогноз — top-down модель на основе введённых данных. Все допущения задаются вручную через слайдеры выше.")
+            st.warning("⚠️ Прогноз показывает возможные исходы, а не инвестиционную рекомендацию.")
+
+
+# ──────────────────────────────────────────────────────────────────────
+# СТРАНИЦА: ВЫВОД
+# ──────────────────────────────────────────────────────────────────────
+elif active_page == "📝 Вывод":
+    st.markdown("# 📝 Итоговый вывод")
+    st.caption("Сухой аналитический вывод на основе фактов. Без инвестиционных рекомендаций.")
+
+    yrs = active_years()
+    if not yrs:
+        st.warning("Нет данных. Перейдите в «Ввод данных».")
+    else:
+        first_y, last_y = yrs[0], yrs[-1]
+        r_first = calc_ratios(first_y)
+        r_last = calc_ratios(last_y)
+        unit = st.session_state.unit
+        cname = st.session_state.company_name
+
+        rev_f = st.session_state.data[first_y].get("revenue")
+        rev_l = st.session_state.data[last_y].get("revenue")
+        net_l = st.session_state.data[last_y].get("net")
+
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        with mc1:
+            delta = f"{(rev_l-rev_f)/abs(rev_f)*100:+.0f}% к {first_y}" if rev_f and rev_l else None
+            st.metric(f"Выручка {last_y}", fmt_money(rev_l), delta)
+        with mc2:
+            v = r_last.get("ROE %")
+            st.metric("ROE", f"{v}%" if v else "н/д")
+        with mc3:
+            v = r_last.get("Net Margin %")
+            st.metric("Net Margin", f"{v}%" if v else "н/д")
+        with mc4:
+            v = r_last.get("Debt/Equity")
+            st.metric("Debt/Equity", f"{v}" if v else "н/д")
+
+        with st.container(border=True):
+            st.markdown(f"### Структурированный вывод — {cname} ({first_y}–{last_y})")
+
+            if rev_f and rev_l:
+                d = (rev_l - rev_f) / abs(rev_f) * 100
+                trend = "выросла" if d > 0 else "снизилась"
+                st.markdown(f"**1. Динамика выручки.** Выручка {trend} с {fmt_money(rev_f)} до {fmt_money(rev_l)} {unit} ({'+' if d>=0 else ''}{d:.0f}% за {first_y}–{last_y}).")
+
+            nm = r_last.get("Net Margin %"); roe = r_last.get("ROE %"); roa = r_last.get("ROA %")
+            qual_roe = "Рентабельность капитала в норме (ROE ≥ 10%)." if roe and roe >= 10 else "ROE ниже нормы (<10%) — требует внимания." if roe else ""
+            st.markdown(f"**2. Прибыльность ({last_y}).** Net Margin = {f'{nm}%' if nm else 'н/д'}, ROE = {f'{roe}%' if roe else 'н/д'}, ROA = {f'{roa}%' if roa else 'н/д'}. {qual_roe}")
+
+            de = r_last.get("Debt/Equity"); ic = r_last.get("Interest Coverage"); nd = r_last.get("Net Debt/EBITDA")
+            qual_de = "Долговая нагрузка умеренная (D/E ≤ 1.5)." if de and de <= 1.5 else "Повышенная долговая нагрузка (D/E > 1.5)." if de else ""
+            st.markdown(f"**3. Финансовая устойчивость.** D/E = {f'{de}×' if de else 'н/д'}, Net Debt/EBITDA = {f'{nd}×' if nd else 'н/д'}, Interest Coverage = {f'{ic}×' if ic else 'н/д'}. {qual_de}")
+
+            cfo_ni = r_last.get("CFO/Net Income")
+            if cfo_ni:
+                qual = "Прибыль подтверждена операционным кэшем." if cfo_ni >= 0.8 else "CFO отстаёт от прибыли — требует проверки качества прибыли."
+                st.markdown(f"**4. Качество прибыли.** CFO/Net Income = {cfo_ni}×. {qual}")
+            else:
+                st.markdown("**4. Качество прибыли.** CFO не введён — для оценки добавьте данные ОДС.")
+
+            cr = r_last.get("Current Ratio"); qr = r_last.get("Quick Ratio")
+            qual_cr = "Ликвидность в норме." if cr and cr >= 1.5 else "Ликвидность ниже нормы (<1.5)." if cr else ""
+            st.markdown(f"**5. Ликвидность.** Current Ratio = {cr if cr else 'н/д'}, Quick Ratio = {qr if qr else 'н/д'}. {qual_cr}")
+
+            missing = [lbl for k, lbl in [("cfo","CFO"),("capex","Capex"),("ar","Дебиторка"),("interest","% расходы")]
+                       if not st.session_state.data[last_y].get(k)]
+            if missing:
+                st.markdown(f"**6. Ограничения.** Не введены данные за {last_y}: {', '.join(missing)}. Это снижает точность части коэффициентов. Рекомендуется дополнить из отчётности KASE.")
+
+        st.warning("⚠️ Вывод не является инвестиционной рекомендацией. Нормы — общепринятые; отраслевые бенчмарки могут отличаться.")
+
 
 st.sidebar.markdown("---")
 st.sidebar.caption("Индивидуальный проект · Финансовый анализ · АФО 2026")
